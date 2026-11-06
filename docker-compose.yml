@@ -1,9 +1,11 @@
 version: '3.9'
 services:
+  # MongoDB cluster (replica set, không auth, không keyFile cho dev)
   mongo1:
     image: mongo:latest
     container_name: mongo1
-    hostname: mongo1
+    ports:
+      - 27019:27017
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     volumes:
       - mongo1_data:/data/db
@@ -17,7 +19,6 @@ services:
   mongo2:
     image: mongo:latest
     container_name: mongo2
-    hostname: mongo2
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     volumes:
       - mongo2_data:/data/db
@@ -31,7 +32,6 @@ services:
   mongo3:
     image: mongo:latest
     container_name: mongo3
-    hostname: mongo3
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     volumes:
       - mongo3_data:/data/db
@@ -43,6 +43,7 @@ services:
       timeout: 5s
       retries: 10
 
+    # Khởi tạo replica set sau khi các node mongo đã sẵn sàng
   mongo-setup:
     image: mongo:latest
     depends_on:
@@ -52,46 +53,13 @@ services:
         condition: service_healthy
       mongo3:
         condition: service_healthy
-    entrypoint: >
-      bash -c "\
-        sleep 10; \
-        echo '--- INIT REPLICA SET ---'; \
-        mongosh --host mongo1:27017 --eval '\
-          try { \
-            var status = rs.status(); \
-            if (status.ok === 0 || status.code === 94) { \
-              rs.initiate({ \
-                _id: \"rs0\", \
-                members: [ \
-                  { _id: 0, host: \"mongo1:27017\" }, \
-                  { _id: 1, host: \"mongo2:27017\" }, \
-                  { _id: 2, host: \"mongo3:27017\" } \
-                ] \
-              }); \
-              print(\"Replica set initiated\"); \
-            } else { \
-              print(\"Replica set already initialized\"); \
-            } \
-          } catch(e) { \
-            if (e.code === 94) { \
-              rs.initiate({ \
-                _id: \"rs0\", \
-                members: [ \
-                  { _id: 0, host: \"mongo1:27017\" }, \
-                  { _id: 1, host: \"mongo2:27017\" }, \
-                  { _id: 2, host: \"mongo3:27017\" } \
-                ] \
-              }); \
-              print(\"Replica set initiated\"); \
-            } else { \
-              print(\"Error: \" + e); \
-            } \
-          } \
-        '; \
-      "
+    restart: on-failure # Tự động thử lại nếu thất bại
+    command: >
+      sh -c "i=1; while [ $i -le 30 ]; do mongosh --host mongo1 --eval \"db.adminCommand('ping')\" && break; echo 'Waiting for mongo1 to be ready...'; i=$((i+1)); sleep 2; done; mongosh --host mongo1 --eval 'rs.initiate({_id: \"rs0\", members: [{ _id: 0, host: \"mongo1:27017\" },{ _id: 1, host: \"mongo2:27017\" },{ _id: 2, host: \"mongo3:27017\" }]}); rs.status();'"
     networks:
       - backend
 
+  # User app (5 instances)
   user1:
     build: ./user
     environment:
@@ -101,6 +69,8 @@ services:
     depends_on:
       mongo-setup:
         condition: service_completed_successfully
+    ports:
+      - 3001:3000
     networks:
       - backend
   user2:
@@ -112,6 +82,8 @@ services:
     depends_on:
       mongo-setup:
         condition: service_completed_successfully
+    ports:
+      - 3002:3000
     networks:
       - backend
   user3:
@@ -123,6 +95,8 @@ services:
     depends_on:
       mongo-setup:
         condition: service_completed_successfully
+    ports:
+      - 3003:3000
     networks:
       - backend
   user4:
@@ -134,6 +108,8 @@ services:
     depends_on:
       mongo-setup:
         condition: service_completed_successfully
+    ports:
+      - 3004:3000
     networks:
       - backend
   user5:
@@ -145,9 +121,12 @@ services:
     depends_on:
       mongo-setup:
         condition: service_completed_successfully
+    ports:
+      - 3005:3000
     networks:
       - backend
 
+  # Admin app
   admin:
     build: ./admin
     environment:
@@ -157,9 +136,12 @@ services:
     depends_on:
       mongo-setup:
         condition: service_completed_successfully
+    ports:
+      - 4001:4000
     networks:
       - backend
 
+  # Nginx load balancer
   nginx:
     image: nginx:1.25
     container_name: nginx

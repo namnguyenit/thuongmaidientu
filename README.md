@@ -1,4 +1,4 @@
-# 🧾 Website Thương Mại Điện Tử
+﻿# 🧾 Website Thương Mại Điện Tử
 
 Dự án mô phỏng sàn thương mại điện tử với các vai trò: Admin, User và Shipper, được xây dựng bằng Node.js, MongoDB, Docker và Bootstrap.
 
@@ -143,6 +143,28 @@ docker-compose stop
 <p align="center">
   <img src="./image/shipper.png" alt="alt text" width="600"/>
 </p>
+
+
+---
+
+## 📋 Quy ước phát triển (Conventions & REST API)
+
+### 1. Quy tắc đặt tên
+- **Biến / hàm**: `camelCase`
+- **Class**: `PascalCase`
+- **File**: `kebab-case.js`
+- **Thư mục**: `kebab-case/`
+
+### 2. Quy chuẩn REST API
+| Tên hàm | Chức năng | HTTP Method | Route ví dụ |
+| :--- | :--- | :---: | :--- |
+| `index` | Danh sách | `GET` | `/users` |
+| `create` | Form tạo mới | `GET` | `/users/create` |
+| `store` | Lưu mới | `POST` | `/users` |
+| `show` | Xem chi tiết | `GET` | `/users/:id` |
+| `edit` | Form sửa | `GET` | `/users/:id/edit` |
+| `update` | Cập nhật | `PUT/PATCH` | `/users/:id` |
+| `destroy` | Xoá | `DELETE` | `/users/:id` |
 
 ## 👨‍💻 Nhóm phát triển
 
